@@ -1,23 +1,102 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <title>F1 25 Telemetria</title>
+  <style>
+    body {
+      margin: 0;
+      background: linear-gradient(to bottom, #0f0f0f, #1a1a1a);
+      color: #00ffcc;
+      font-family: 'Segoe UI', sans-serif;
+      display: flex;
+      flex-direction: row;
+      height: 100vh;
+    }
+
+    .left {
+      flex: 2;
+      padding: 40px;
+    }
+
+    .right {
+      flex: 1;
+      background-color: #121212;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border-left: 2px solid #333;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    form {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    input {
+      padding: 8px;
+      font-size: 1em;
+      border-radius: 5px;
+      border: none;
+      margin-right: 10px;
+    }
+
+    button {
+      padding: 8px 16px;
+      font-size: 1em;
+      background-color: #00ffcc;
+      color: #000;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .telemetry {
+      font-size: 1.2em;
+      margin-top: 20px;
+      text-align: center;
+    }
+
+    .speed-display {
+      font-size: 3em;
+      font-weight: bold;
+      color: #00ffcc;
+    }
+
+    canvas {
+      background-color: #222;
+      border-radius: 10px;
+    }
+  </style>
+</head>
 <body>
-  <h1>F1 25 Telemetria Live</h1>
-
-  <form id="configForm">
-    <label>IP del Gioco (LAN):</label>
-    <input type="text" id="ipInput" value="127.0.0.1" required />
-    <button type="submit">Connetti</button>
-  </form>
-
-  <div class="data" id="telemetry">
-    Inserisci l’IP e premi “Connetti” per iniziare.
+  <div class="left">
+    <h1>F1 25 Telemetria Live</h1>
+    <form id="configForm">
+      <input type="text" id="ipInput" value="127.0.0.1" required />
+      <button type="submit">Connetti</button>
+    </form>
+    <canvas id="chart" width="800" height="300"></canvas>
+    <div class="telemetry" id="telemetry">In attesa di dati...</div>
   </div>
 
-  <canvas id="chart" width="600" height="300"></canvas>
+  <div class="right">
+    <div>Velocità</div>
+    <div class="speed-display" id="speedDisplay">-- km/h</div>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
     const telemetry = document.getElementById('telemetry');
     const form = document.getElementById('configForm');
     const ipInput = document.getElementById('ipInput');
+    const speedDisplay = document.getElementById('speedDisplay');
 
     let socket;
     let chart;
@@ -34,10 +113,9 @@
       socket.onmessage = (event) => {
         const data = JSON.parse(event.data);
         telemetry.innerHTML = `
-          Velocità: ${data.speed} km/h<br>
-          Throttle: ${data.throttle}%<br>
-          Freno: ${data.brake}%
+          Throttle: ${data.throttle}% | Freno: ${data.brake}%
         `;
+        speedDisplay.textContent = `${data.speed} km/h`;
 
         const now = new Date().toLocaleTimeString();
         labels.push(now);
@@ -45,7 +123,7 @@
         throttleData.push(data.throttle);
         brakeData.push(data.brake);
 
-        if (labels.length > 20) {
+        if (labels.length > 30) {
           labels.shift();
           speedData.shift();
           throttleData.shift();
@@ -57,6 +135,7 @@
 
       socket.onerror = () => {
         telemetry.innerHTML = "Errore nella connessione WebSocket.";
+        speedDisplay.textContent = "-- km/h";
       };
     });
 
@@ -73,11 +152,27 @@
       },
       options: {
         responsive: true,
+        plugins: {
+          legend: {
+            labels: {
+              color: 'white'
+            }
+          }
+        },
         scales: {
-          y: { beginAtZero: true, max: 350 }
+          x: {
+            ticks: { color: 'white' },
+            grid: { color: '#444' }
+          },
+          y: {
+            beginAtZero: true,
+            max: 350,
+            ticks: { color: 'white' },
+            grid: { color: '#444' }
+          }
         }
       }
     });
   </script>
 </body>
-
+</html>

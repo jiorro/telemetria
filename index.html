@@ -10,8 +10,19 @@
       color: #00ffcc;
       font-family: 'Segoe UI', sans-serif;
       display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    header {
+      text-align: center;
+      padding: 30px 0 10px;
+    }
+
+    main {
+      display: flex;
+      flex: 1;
       flex-direction: row;
-      height: 100vh;
     }
 
     .left {
@@ -27,11 +38,6 @@
       align-items: center;
       justify-content: center;
       border-left: 2px solid #333;
-    }
-
-    h1 {
-      text-align: center;
-      margin-bottom: 20px;
     }
 
     form {
@@ -73,22 +79,59 @@
       background-color: #222;
       border-radius: 10px;
     }
+
+    .strategy-section {
+      background-color: #181818;
+      color: #eee;
+      padding: 30px;
+      border-top: 2px solid #333;
+    }
+
+    .strategy-section h2 {
+      color: #00ffcc;
+      text-align: center;
+    }
+
+    .strategy-data {
+      max-width: 600px;
+      margin: 0 auto;
+      font-size: 1.2em;
+      text-align: center;
+    }
+
+    .strategy-data p {
+      margin: 10px 0;
+    }
   </style>
 </head>
 <body>
-  <div class="left">
+  <header>
     <h1>F1 25 Telemetria Live</h1>
     <form id="configForm">
       <input type="text" id="ipInput" value="127.0.0.1" required />
       <button type="submit">Connetti</button>
     </form>
-    <canvas id="chart" width="800" height="300"></canvas>
-    <div class="telemetry" id="telemetry">In attesa di dati...</div>
-  </div>
+  </header>
 
-  <div class="right">
-    <div>Velocità</div>
-    <div class="speed-display" id="speedDisplay">-- km/h</div>
+  <main>
+    <div class="left">
+      <canvas id="chart" width="800" height="300"></canvas>
+      <div class="telemetry" id="telemetry">In attesa di dati...</div>
+    </div>
+
+    <div class="right">
+      <div>Velocità</div>
+      <div class="speed-display" id="speedDisplay">-- km/h</div>
+    </div>
+  </main>
+
+  <div class="strategy-section">
+    <h2>Strategia di Gara</h2>
+    <div class="strategy-data" id="strategyData">
+      <p>Giro previsto per il pit stop: <strong id="pitLap">--</strong></p>
+      <p>Posizione stimata al rientro: <strong id="rejoinPos">--</strong></p>
+      <p>Consumo gomme: <strong id="tyreWear">--%</strong></p>
+    </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -97,6 +140,10 @@
     const form = document.getElementById('configForm');
     const ipInput = document.getElementById('ipInput');
     const speedDisplay = document.getElementById('speedDisplay');
+
+    const pitLapEl = document.getElementById('pitLap');
+    const rejoinPosEl = document.getElementById('rejoinPos');
+    const tyreWearEl = document.getElementById('tyreWear');
 
     let socket;
     let chart;
@@ -116,6 +163,11 @@
           Throttle: ${data.throttle}% | Freno: ${data.brake}%
         `;
         speedDisplay.textContent = `${data.speed} km/h`;
+
+        // Aggiorna strategia
+        pitLapEl.textContent = data.pitLap ?? '--';
+        rejoinPosEl.textContent = data.rejoinPos ?? '--';
+        tyreWearEl.textContent = data.tyreWear ?? '--';
 
         const now = new Date().toLocaleTimeString();
         labels.push(now);
@@ -173,15 +225,6 @@
         }
       }
     });
-    <div class="strategy-section">
-  <h2>Strategia di Gara</h2>
-  <div class="strategy-data" id="strategyData">
-    <p>Giro previsto per il pit stop: <strong id="pitLap">--</strong></p>
-    <p>Posizione stimata al rientro: <strong id="rejoinPos">--</strong></p>
-    <p>Consumo gomme: <strong id="tyreWear">--%</strong></p>
-  </div>
-</div>
-
   </script>
 </body>
 </html>

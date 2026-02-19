@@ -51,6 +51,8 @@
       border-radius: 5px;
       border: none;
       margin-right: 10px;
+      background: #222;
+      color: #00ffcc;
     }
 
     button {
@@ -61,6 +63,10 @@
       border: none;
       border-radius: 5px;
       cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #00ccaa;
     }
 
     .telemetry {
@@ -78,6 +84,7 @@
     canvas {
       background-color: #222;
       border-radius: 10px;
+      max-width: 100%;
     }
 
     .strategy-section {
@@ -92,157 +99,190 @@
       text-align: center;
     }
 
-    .strategy-data {
-      max-width: 600px;
-      margin: 0 auto;
-      font-size: 1.2em;
-      text-align: center;
+    .strategy-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      max-width: 800px;
+      margin: 20px auto;
     }
 
-    .strategy-data p {
+    .strategy-grid p {
       margin: 10px 0;
+      font-size: 1.1em;
     }
-    <link rel="stylesheet" href="style.css">
 
+    .status {
+      text-align: center;
+      padding: 10px;
+      background: #00ffcc;
+      color: #000;
+      border-radius: 5px;
+      margin-top: 10px;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
   <header>
     <h1>F1 25 Telemetria Live</h1>
     <form id="configForm">
-      <input type="text" id="ipInput" value="127.0.0.1" required />
-      <button type="submit">Connetti</button>
+      <input type="text" id="ipInput" value="127.0.0.1" placeholder="IP:porta" required />
+      <button type="submit">Connetti WebSocket</button>
     </form>
+    <div id="status" class="status" style="display: none;">Connesso!</div>
   </header>
 
   <main>
     <div class="left">
-      <canvas id="chart" width="800" height="300"></canvas>
-      <div class="telemetry" id="telemetry">In attesa di dati...</div>
+      <canvas id="chart"></canvas>
+      <div class="telemetry" id="telemetry">In attesa di connessione...</div>
     </div>
 
     <div class="right">
-      <div>Velocità</div>
+      <div>Velocità Corrente</div>
       <div class="speed-display" id="speedDisplay">-- km/h</div>
     </div>
   </main>
 
   <div class="strategy-section">
     <h2>Strategia di Gara</h2>
-    <div class="strategy-data" id="strategyData">
-      <p>Giro previsto per il pit stop: <strong id="pitLap">--</strong></p>
-      <p>Posizione stimata al rientro: <strong id="rejoinPos">--</strong></p>
-      <p>Consumo gomme: <strong id="tyreWear">--%</strong></p>
+    <div class="strategy-grid">
+      <div>
+        <p><strong>Giro previsto pit stop:</strong> <span id="pitLap">--</span></p>
+        <p><strong>Posizione al rientro:</strong> <span id="rejoinPos">--</span></p>
+        <p><strong>Consumo gomme:</strong> <span id="tyreWear">--%</span></p>
+      </div>
+      <div>
+        <p><strong>Media tempi giro:</strong> <span id="avgLapTime">--</span></p>
+        <p><strong>Miglior giro:</strong> <span id="fastestLap">--</span></p>
+        <p><strong>Passo leader:</strong> <span id="leaderPace">--</span></p>
+      </div>
     </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
-    const telemetry = document.getElementById('telemetry');
-    const form = document.getElementById('configForm');
-    const ipInput = document.getElementById('ipInput');
-    const speedDisplay = document.getElementById('speedDisplay');
+    document.addEventListener('DOMContentLoaded', () => {
+      const telemetry = document.getElementById('telemetry');
+      const form = document.getElementById('configForm');
+      const ipInput = document.getElementById('ipInput');
+      const speedDisplay = document.getElementById('speedDisplay');
+      const statusEl = document.getElementById('status');
 
-    const pitLapEl = document.getElementById('pitLap');
-    const rejoinPosEl = document.getElementById('rejoinPos');
-    const tyreWearEl = document.getElementById('tyreWear');
-
-    let socket;
-    let chart;
-    const labels = [];
-    const speedData = [];
-    const throttleData = [];
-    const brakeData = [];
-
-    form.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const ip = ipInput.value;
-      socket = new WebSocket(`ws://${ip}:3000`);
-
-      socket.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        telemetry.innerHTML = `
-          Throttle: ${data.throttle}% | Freno: ${data.brake}%
-        `;
-        speedDisplay.textContent = `${data.speed} km/h`;
-
-        // Aggiorna strategia
-        pitLapEl.textContent = data.pitLap ?? '--';
-        rejoinPosEl.textContent = data.rejoinPos ?? '--';
-        tyreWearEl.textContent = data.tyreWear ?? '--';
-
-        const now = new Date().toLocaleTimeString();
-        labels.push(now);
-        speedData.push(data.speed);
-        throttleData.push(data.throttle);
-        brakeData.push(data.brake);
-
-        if (labels.length > 30) {
-          labels.shift();
-          speedData.shift();
-          throttleData.shift();
-          brakeData.shift();
-        }
-
-        chart.update();
+      const elements = {
+        pitLap: document.getElementById('pitLap'),
+        rejoinPos: document.getElementById('rejoinPos'),
+        tyreWear: document.getElementById('tyreWear'),
+        avgLapTime: document.getElementById('avgLapTime'),
+        fastestLap: document.getElementById('fastestLap'),
+        leaderPace: document.getElementById('leaderPace')
       };
 
-      socket.onerror = () => {
-        telemetry.innerHTML = "Errore nella connessione WebSocket.";
-        speedDisplay.textContent = "-- km/h";
-      };
-    });
-
-    const ctx = document.getElementById('chart').getContext('2d');
-    chart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: labels,
-        datasets: [
-          { label: 'Velocità (km/h)', data: speedData, borderColor: 'lime', fill: false },
-          { label: 'Throttle (%)', data: throttleData, borderColor: 'cyan', fill: false },
-          { label: 'Freno (%)', data: brakeData, borderColor: 'red', fill: false }
-        ]
-      },
-      options: {
-        responsive: true,
-        plugins: {
-          legend: {
-            labels: {
-              color: 'white'
-            }
-          }
-        },
-        scales: {
-          x: {
-            ticks: { color: 'white' },
-            grid: { color: '#444' }
-          },
-          y: {
-            beginAtZero: true,
-            max: 350,
-            ticks: { color: 'white' },
-            grid: { color: '#444' }
-          }
-        }
+      if (!document.getElementById('chart')) {
+        telemetry.textContent = 'Errore: Canvas #chart mancante!';
+        return;
       }
-    });
-    <div class="strategy-section">
-  <h2>Strategia di Gara</h2>
-  <div class="strategy-grid">
-    <div class="strategy-left">
-      <p><strong>Giro previsto per il pit stop:</strong> <span id="pitLap">--</span></p>
-      <p><strong>Posizione stimata al rientro:</strong> <span id="rejoinPos">--</span></p>
-      <p><strong>Consumo gomme:</strong> <span id="tyreWear">--%</span></p>
-    </div>
-    <div class="strategy-right">
-      <p><strong>Media tempi sul giro:</strong> <span id="avgLapTime">--</span></p>
-      <p><strong>Giro più veloce:</strong> <span id="fastestLap">--</span></p>
-      <p><strong>Passo gara del primo:</strong> <span id="leaderPace">--</span></p>
-    </div>
-  </div>
-</div>
 
+      let socket;
+      let chart;
+      const MAX_POINTS = 50;
+      const labels = [];
+      const speedData = [];
+      const throttleData = [];
+      const brakeData = [];
+
+      // Inizializza Chart
+      const ctx = document.getElementById('chart').getContext('2d');
+      chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            { label: 'Velocità (km/h)', data: speedData, borderColor: 'lime', yAxisID: 'y', fill: false, tension: 0.4 },
+            { label: 'Throttle (%)', data: throttleData, borderColor: 'cyan', yAxisID: 'y1', fill: false, tension: 0.4 },
+            { label: 'Freno (%)', data: brakeData, borderColor: 'red', yAxisID: 'y1', fill: false, tension: 0.4 }
+          ]
+        },
+        options: {
+          responsive: true,
+          interaction: { intersect: false },
+          plugins: {
+            legend: { labels: { color: 'white' } }
+          },
+          scales: {
+            x: { ticks: { color: 'white' }, grid: { color: '#444' } },
+            y: { type: 'linear', position: 'left', beginAtZero: true, max: 350, ticks: { color: 'lime' }, grid: { color: '#444' } },
+            y1: { type: 'linear', position: 'right', beginAtZero: true, max: 100, ticks: { color: 'cyan' }, grid: { drawOnChartArea: false } }
+          }
+        }
+      });
+
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const ip = ipInput.value.trim();
+        if (!ip) return;
+
+        if (socket) socket.close();
+
+        statusEl.style.display = 'none';
+        telemetry.innerHTML = 'Connessione in corso...';
+        speedDisplay.textContent = '-- km/h';
+
+        socket = new WebSocket(`ws://${ip}:3000`);
+
+        socket.onopen = () => {
+          statusEl.style.display = 'block';
+          telemetry.innerHTML = 'Connesso! In attesa dati...';
+        };
+
+        socket.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            telemetry.innerHTML = `Throttle: ${data.throttle ?? 0}% | Freno: ${data.brake ?? 0}%`;
+            speedDisplay.textContent = `${data.speed ?? 0} km/h`;
+
+            // Aggiorna strategia
+            Object.entries(elements).forEach(([key, el]) => {
+              el.textContent = data[key] ?? '--';
+            });
+
+            // Aggiorna grafico
+            const now = new Date().toLocaleTimeString();
+            labels.push(now);
+            speedData.push(data.speed ?? 0);
+            throttleData.push(data.throttle ?? 0);
+            brakeData.push(data.brake ?? 0);
+
+            if (labels.length > MAX_POINTS) {
+              labels.shift();
+              speedData.shift();
+              throttleData.shift();
+              brakeData.shift();
+            }
+
+            chart.update('none');
+          } catch (err) {
+            console.error('Errore JSON:', err);
+            telemetry.innerHTML = 'Dati invalidi ricevuti.';
+          }
+        };
+
+        socket.onerror = (err) => {
+          console.error('WS errore:', err);
+          telemetry.innerHTML = '❌ Errore connessione WebSocket.';
+          speedDisplay.textContent = '-- km/h';
+          statusEl.style.display = 'none';
+        };
+
+        socket.onclose = (event) => {
+          console.log('WS chiuso:', event.code, event.reason);
+          telemetry.innerHTML = '🔌 Connessione chiusa. Riprova.';
+          speedDisplay.textContent = '-- km/h';
+          statusEl.style.display = 'none';
+        };
+      });
+    });
   </script>
 </body>
 </html>

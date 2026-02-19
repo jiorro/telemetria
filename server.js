@@ -1,5 +1,4 @@
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
+document.addEventListener('DOMContentLoaded', () => {
   const telemetry = document.getElementById('telemetry');
   const form = document.getElementById('configForm');
   const ipInput = document.getElementById('ipInput');
@@ -12,58 +11,18 @@
   const fastestLapEl = document.getElementById('fastestLap');
   const leaderPaceEl = document.getElementById('leaderPace');
 
-  let socket;
-  let chart;
+  const ctx = document.getElementById('chart')?.getContext('2d');
+  if (!ctx) {
+    console.error('Canvas non trovato. Verifica che l\'elemento #chart esista.');
+    return;
+  }
+
   const labels = [];
   const speedData = [];
   const throttleData = [];
   const brakeData = [];
 
-  form.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const ip = ipInput.value;
-    socket = new WebSocket(`ws://${ip}:3000`);
-
-    socket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-
-      telemetry.innerHTML = `
-        Throttle: ${data.throttle}% | Freno: ${data.brake}%
-      `;
-      speedDisplay.textContent = `${data.speed} km/h`;
-
-      // Aggiorna strategia
-      pitLapEl.textContent = data.pitLap ?? '--';
-      rejoinPosEl.textContent = data.rejoinPos ?? '--';
-      tyreWearEl.textContent = data.tyreWear ?? '--';
-      avgLapTimeEl.textContent = data.avgLapTime ?? '--';
-      fastestLapEl.textContent = data.fastestLap ?? '--';
-      leaderPaceEl.textContent = data.leaderPace ?? '--';
-
-      const now = new Date().toLocaleTimeString();
-      labels.push(now);
-      speedData.push(data.speed);
-      throttleData.push(data.throttle);
-      brakeData.push(data.brake);
-
-      if (labels.length > 30) {
-        labels.shift();
-        speedData.shift();
-        throttleData.shift();
-        brakeData.shift();
-      }
-
-      chart.update();
-    };
-
-    socket.onerror = () => {
-      telemetry.innerHTML = "Errore nella connessione WebSocket.";
-      speedDisplay.textContent = "-- km/h";
-    };
-  });
-
-  const ctx = document.getElementById('chart').getContext('2d');
-  chart = new Chart(ctx, {
+  const chart = new Chart(ctx, {
     type: 'line',
     data: {
       labels: labels,
@@ -96,5 +55,66 @@
       }
     }
   });
-</script>
 
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const ip = ipInput.value;
+    const wsUrl = `ws://${ip}:3000`;
+
+    try {
+      const socket = new WebSocket(wsUrl);
+
+      socket.onopen = () => {
+        console.log('WebSocket connesso a', wsUrl);
+      };
+
+      socket.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+
+          telemetry.innerHTML = `
+            Throttle: ${data.throttle}% | Freno: ${data.brake}%
+          `;
+          speedDisplay.textContent = `${data.speed} km/h`;
+
+          pitLapEl.textContent = data.pitLap ?? '--';
+          rejoinPosEl.textContent = data.rejoinPos ?? '--';
+          tyreWearEl.textContent = data.tyreWear ?? '--';
+          avgLapTimeEl.textContent = data.avgLapTime ?? '--';
+          fastestLapEl.textContent = data.fastestLap ?? '--';
+          leaderPaceEl.textContent = data.leaderPace ?? '--';
+
+          const now = new Date().toLocaleTimeString();
+          labels.push(now);
+          speedData.push(data.speed);
+          throttleData.push(data.throttle);
+          brakeData.push(data.brake);
+
+          if (labels.length > 30) {
+            labels.shift();
+            speedData.shift();
+            throttleData.shift();
+            brakeData.shift();
+          }
+
+          chart.update();
+        } catch (err) {
+          console.error('Errore nel parsing dei dati JSON:', err);
+        }
+      };
+
+      socket.onerror = (err) => {
+        console.error('Errore WebSocket:', err);
+        telemetry.innerHTML = "Errore nella connessione WebSocket.";
+        speedDisplay.textContent = "-- km/h";
+      };
+
+      socket.onclose = () => {
+        console.warn('Connessione WebSocket chiusa.');
+      };
+
+    } catch (err) {
+      console.error('Errore durante la connessione WebSocket:', err);
+    }
+  });
+});

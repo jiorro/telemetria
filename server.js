@@ -1,35 +1,92 @@
-const dgram = require('dgram');
-const WebSocket = require('ws');
-const express = require('express');
-const http = require('http');
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  const telemetry = document.getElementById('telemetry');
+  const form = document.getElementById('configForm');
+  const ipInput = document.getElementById('ipInput');
+  const speedDisplay = document.getElementById('speedDisplay');
 
-const UDP_PORT = 20777;
-const WS_PORT = 3000;
+  const pitLapEl = document.getElementById('pitLap');
+  const rejoinPosEl = document.getElementById('rejoinPos');
+  const tyreWearEl = document.getElementById('tyreWear');
 
-const app = express();
-const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
+  let socket;
+  let chart;
+  const labels = [];
+  const speedData = [];
+  const throttleData = [];
+  const brakeData = [];
 
-app.use(express.static('public'));
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const ip = ipInput.value;
+    socket = new WebSocket(`ws://${ip}:3000`);
 
-const udp = dgram.createSocket('udp4');
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      telemetry.innerHTML = `
+        Throttle: ${data.throttle}% | Freno: ${data.brake}%
+      `;
+      speedDisplay.textContent = `${data.speed} km/h`;
 
-udp.on('message', (msg) => {
-  // Estrai velocità (byte 8-9), throttle (byte 24), freno (byte 26)
-  const speed = msg.readUInt16LE(8);
-  const throttle = msg.readUInt8(24);
-  const brake = msg.readUInt8(26);
+      // Aggiorna strategia
+      pitLapEl.textContent = data.pitLap ?? '--';
+      rejoinPosEl.textContent = data.rejoinPos ?? '--';
+      tyreWearEl.textContent = data.tyreWear ?? '--';
 
-  const data = { speed, throttle, brake };
+      const now = new Date().toLocaleTimeString();
+      labels.push(now);
+      speedData.push(data.speed);
+      throttleData.push(data.throttle);
+      brakeData.push(data.brake);
 
-  wss.clients.forEach(client => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(JSON.stringify(data));
+      if (labels.length > 30) {
+        labels.shift();
+        speedData.shift();
+        throttleData.shift();
+        brakeData.shift();
+      }
+
+      chart.update();
+    };
+
+    socket.onerror = () => {
+      telemetry.innerHTML = "Errore nella connessione WebSocket.";
+      speedDisplay.textContent = "-- km/h";
+    };
+  });
+
+  const ctx = document.getElementById('chart').getContext('2d');
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        { label: 'Velocità (km/h)', data: speedData, borderColor: 'lime', fill: false },
+        { label: 'Throttle (%)', data: throttleData, borderColor: 'cyan', fill: false },
+        { label: 'Freno (%)', data: brakeData, borderColor: 'red', fill: false }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {
+          labels: {
+            color: 'white'
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: 'white' },
+          grid: { color: '#444' }
+        },
+        y: {
+          beginAtZero: true,
+          max: 350,
+          ticks: { color: 'white' },
+          grid: { color: '#444' }
+        }
+      }
     }
   });
-});
-
-udp.bind(UDP_PORT);
-server.listen(WS_PORT, () => {
-  console.log(`Server WebSocket attivo su http://localhost:${WS_PORT}`);
-});
+</script>

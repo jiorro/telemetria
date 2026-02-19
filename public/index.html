@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <title>F1 25 Telemetria</title>
+  <style>
+    body {
+      background-color: #111;
+      color: #0f0;
+      font-family: monospace;
+      text-align: center;
+      padding-top: 50px;
+    }
+    h1 {
+      font-size: 2em;
+    }
+    .data {
+      font-size: 1.5em;
+      margin-top: 30px;
+    }
+  </style>
+</head>
+<body>
+  <h1>F1 25 Telemetria Live</h1>
+  <div class="data" id="telemetry">
+    In attesa di dati...
+  </div>
+
+  <script>
+    const telemetry = document.getElementById('telemetry');
+    const socket = new WebSocket('ws://localhost:3000');
+
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      telemetry.innerHTML = `
+        Velocità: ${data.speed} km/h<br>
+        Throttle: ${data.throttle}%<br>
+        Freno: ${data.brake}%
+      `;
+    };
+
+    socket.onerror = () => {
+      telemetry.innerHTML = "Errore nella connessione WebSocket.";
+    };
+  </script>
+</body>
+</html>

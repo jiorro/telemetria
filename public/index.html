@@ -1,47 +1,83 @@
-<!DOCTYPE html>
-<html lang="it">
-<head>
-  <meta charset="UTF-8" />
-  <title>F1 25 Telemetria</title>
-  <style>
-    body {
-      background-color: #111;
-      color: #0f0;
-      font-family: monospace;
-      text-align: center;
-      padding-top: 50px;
-    }
-    h1 {
-      font-size: 2em;
-    }
-    .data {
-      font-size: 1.5em;
-      margin-top: 30px;
-    }
-  </style>
-</head>
 <body>
   <h1>F1 25 Telemetria Live</h1>
+
+  <form id="configForm">
+    <label>IP del Gioco (LAN):</label>
+    <input type="text" id="ipInput" value="127.0.0.1" required />
+    <button type="submit">Connetti</button>
+  </form>
+
   <div class="data" id="telemetry">
-    In attesa di dati...
+    Inserisci l’IP e premi “Connetti” per iniziare.
   </div>
 
+  <canvas id="chart" width="600" height="300"></canvas>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
     const telemetry = document.getElementById('telemetry');
-    const socket = new WebSocket('ws://localhost:3000');
+    const form = document.getElementById('configForm');
+    const ipInput = document.getElementById('ipInput');
 
-    socket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      telemetry.innerHTML = `
-        Velocità: ${data.speed} km/h<br>
-        Throttle: ${data.throttle}%<br>
-        Freno: ${data.brake}%
-      `;
-    };
+    let socket;
+    let chart;
+    const labels = [];
+    const speedData = [];
+    const throttleData = [];
+    const brakeData = [];
 
-    socket.onerror = () => {
-      telemetry.innerHTML = "Errore nella connessione WebSocket.";
-    };
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const ip = ipInput.value;
+      socket = new WebSocket(`ws://${ip}:3000`);
+
+      socket.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        telemetry.innerHTML = `
+          Velocità: ${data.speed} km/h<br>
+          Throttle: ${data.throttle}%<br>
+          Freno: ${data.brake}%
+        `;
+
+        const now = new Date().toLocaleTimeString();
+        labels.push(now);
+        speedData.push(data.speed);
+        throttleData.push(data.throttle);
+        brakeData.push(data.brake);
+
+        if (labels.length > 20) {
+          labels.shift();
+          speedData.shift();
+          throttleData.shift();
+          brakeData.shift();
+        }
+
+        chart.update();
+      };
+
+      socket.onerror = () => {
+        telemetry.innerHTML = "Errore nella connessione WebSocket.";
+      };
+    });
+
+    const ctx = document.getElementById('chart').getContext('2d');
+    chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          { label: 'Velocità (km/h)', data: speedData, borderColor: 'lime', fill: false },
+          { label: 'Throttle (%)', data: throttleData, borderColor: 'cyan', fill: false },
+          { label: 'Freno (%)', data: brakeData, borderColor: 'red', fill: false }
+        ]
+      },
+      options: {
+        responsive: true,
+        scales: {
+          y: { beginAtZero: true, max: 350 }
+        }
+      }
+    });
   </script>
 </body>
-</html>
+

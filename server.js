@@ -8,6 +8,9 @@
   const pitLapEl = document.getElementById('pitLap');
   const rejoinPosEl = document.getElementById('rejoinPos');
   const tyreWearEl = document.getElementById('tyreWear');
+  const avgLapTimeEl = document.getElementById('avgLapTime');
+  const fastestLapEl = document.getElementById('fastestLap');
+  const leaderPaceEl = document.getElementById('leaderPace');
 
   let socket;
   let chart;
@@ -23,6 +26,7 @@
 
     socket.onmessage = (event) => {
       const data = JSON.parse(event.data);
+
       telemetry.innerHTML = `
         Throttle: ${data.throttle}% | Freno: ${data.brake}%
       `;
@@ -32,6 +36,9 @@
       pitLapEl.textContent = data.pitLap ?? '--';
       rejoinPosEl.textContent = data.rejoinPos ?? '--';
       tyreWearEl.textContent = data.tyreWear ?? '--';
+      avgLapTimeEl.textContent = data.avgLapTime ?? '--';
+      fastestLapEl.textContent = data.fastestLap ?? '--';
+      leaderPaceEl.textContent = data.leaderPace ?? '--';
 
       const now = new Date().toLocaleTimeString();
       labels.push(now);
@@ -90,3 +97,4 @@
     }
   });
 </script>
+

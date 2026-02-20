@@ -1,120 +1,93 @@
-document.addEventListener('DOMContentLoaded', () => {
-  const telemetry = document.getElementById('telemetry');
-  const form = document.getElementById('configForm');
-  const ipInput = document.getElementById('ipInput');
-  const speedDisplay = document.getElementById('speedDisplay');
+const dgram = require('dgram');
+const WebSocket = require('ws');
+const express = require('express');
+const { createPacketDecoder } = require('udp4-packet');
 
-  const pitLapEl = document.getElementById('pitLap');
-  const rejoinPosEl = document.getElementById('rejoinPos');
-  const tyreWearEl = document.getElementById('tyreWear');
-  const avgLapTimeEl = document.getElementById('avgLapTime');
-  const fastestLapEl = document.getElementById('fastestLap');
-  const leaderPaceEl = document.getElementById('leaderPace');
+const UDP_PORT = 20777;
+const WS_PORT = 3000;
+const HTTP_PORT = 8080;
 
-  const ctx = document.getElementById('chart')?.getContext('2d');
-  if (!ctx) {
-    console.error('Canvas non trovato. Verifica che l\'elemento #chart esista.');
-    return;
-  }
+const app = express();
+const wss = new WebSocket.Server({ port: WS_PORT });
+let telemetryData = {
+  speed: 0,
+  throttle: 0,
+  brake: 0,
+  pitLap: '--',
+  rejoinPos: '--',
+  tyreWear: '--',
+  avgLapTime: '--',
+  fastestLap: '--',
+  leaderPace: '--',
+  rpm: 0,
+  gear: 0,
+  lap: 0,
+  position: 0
+};
 
-  const labels = [];
-  const speedData = [];
-  const throttleData = [];
-  const brakeData = [];
+app.use(express.static('public'));
+app.get('/', (req, res) => {
+  res.send(`
+    <h1>🚗 F1 25 Telemetry Server</h1>
+    <p>✅ UDP listening on port ${UDP_PORT}</p>
+    <p>✅ WebSocket on ws://localhost:${WS_PORT}</p>
+    <p><a href="/dashboard.html">📊 Apri Dashboard</a></p>
+    <script>setTimeout(() => location.href='/dashboard.html', 2000);</script>
+  `);
+});
 
-  const chart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: labels,
-      datasets: [
-        { label: 'Velocità (km/h)', data: speedData, borderColor: 'lime', fill: false },
-        { label: 'Throttle (%)', data: throttleData, borderColor: 'cyan', fill: false },
-        { label: 'Freno (%)', data: brakeData, borderColor: 'red', fill: false }
-      ]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: {
-          labels: {
-            color: 'white'
-          }
-        }
-      },
-      scales: {
-        x: {
-          ticks: { color: 'white' },
-          grid: { color: '#444' }
-        },
-        y: {
-          beginAtZero: true,
-          max: 350,
-          ticks: { color: 'white' },
-          grid: { color: '#444' }
-        }
+const server = dgram.createSocket('udp4');
+const decoder = createPacketDecoder();
+
+server.on('message', (msg) => {
+  try {
+    const packet = decoder.decode(msg);
+    
+    // F1 25 Motion Packet (primo pacchetto tipico)
+    if (packet.header && packet.header.packetId === 0) {
+      telemetryData.speed = packet.vehicleF1TelemetryData[0]?.speed || 0;
+      telemetryData.throttle = packet.vehicleF1TelemetryData[0]?.throttle * 100;
+      telemetryData.brake = packet.vehicleF1TelemetryData[0]?.brake * 100;
+      telemetryData.rpm = packet.vehicleF1TelemetryData[0]?.engineRPM || 0;
+      telemetryData.gear = packet.vehicleF1TelemetryData[0]?.gear || 0;
+    }
+    
+    // Lap Data Packet
+    if (packet.header && packet.header.packetId === 2) {
+      telemetryData.lap = packet.lapData[0]?.currentLapNum || 0;
+      telemetryData.position = packet.lapData[0]?.carPosition || 0;
+    }
+    
+    // Broadcast a tutti i client WebSocket
+    wss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify(telemetryData));
       }
-    }
-  });
+    });
+  } catch (e) {
+    console.log('Parse error:', e.message);
+  }
+});
 
-  form.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const ip = ipInput.value;
-    const wsUrl = `ws://${ip}:3000`;
+server.on('listening', () => {
+  const address = server.address();
+  console.log(`\n🚀 F1 25 Telemetry Server AVVIATO!`);
+  console.log(`📡 UDP listening: ${address.address}:${address.port}`);
+  console.log(`🌐 WebSocket: ws://${address.address}:${WS_PORT}`);
+  console.log(`📱 HTTP Dashboard: http://${address.address}:${HTTP_PORT}`);
+  console.log(`\n📝 F1 25 → Settings → Telemetry:`);
+  console.log(`   UDP IP: ${address.address}`);
+  console.log(`   UDP Port: 20777`);
+  console.log(`   Format: 2025\n`);
+});
 
-    try {
-      const socket = new WebSocket(wsUrl);
+server.bind(UDP_PORT, '0.0.0.0');
 
-      socket.onopen = () => {
-        console.log('WebSocket connesso a', wsUrl);
-      };
+wss.on('connection', (ws) => {
+  ws.send(JSON.stringify(telemetryData));
+  console.log('👤 Client WebSocket connesso');
+});
 
-      socket.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-
-          telemetry.innerHTML = `
-            Throttle: ${data.throttle}% | Freno: ${data.brake}%
-          `;
-          speedDisplay.textContent = `${data.speed} km/h`;
-
-          pitLapEl.textContent = data.pitLap ?? '--';
-          rejoinPosEl.textContent = data.rejoinPos ?? '--';
-          tyreWearEl.textContent = data.tyreWear ?? '--';
-          avgLapTimeEl.textContent = data.avgLapTime ?? '--';
-          fastestLapEl.textContent = data.fastestLap ?? '--';
-          leaderPaceEl.textContent = data.leaderPace ?? '--';
-
-          const now = new Date().toLocaleTimeString();
-          labels.push(now);
-          speedData.push(data.speed);
-          throttleData.push(data.throttle);
-          brakeData.push(data.brake);
-
-          if (labels.length > 30) {
-            labels.shift();
-            speedData.shift();
-            throttleData.shift();
-            brakeData.shift();
-          }
-
-          chart.update();
-        } catch (err) {
-          console.error('Errore nel parsing dei dati JSON:', err);
-        }
-      };
-
-      socket.onerror = (err) => {
-        console.error('Errore WebSocket:', err);
-        telemetry.innerHTML = "Errore nella connessione WebSocket.";
-        speedDisplay.textContent = "-- km/h";
-      };
-
-      socket.onclose = () => {
-        console.warn('Connessione WebSocket chiusa.');
-      };
-
-    } catch (err) {
-      console.error('Errore durante la connessione WebSocket:', err);
-    }
-  });
+app.listen(HTTP_PORT, '0.0.0.0', () => {
+  console.log(`🌐 HTTP server su http://0.0.0.0:${HTTP_PORT}`);
 });

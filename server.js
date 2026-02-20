@@ -1,93 +1,210 @@
-const dgram = require('dgram');
-const WebSocket = require('ws');
-const express = require('express');
-const { createPacketDecoder } = require('udp4-packet');
+class F1TelemetryDashboard {
+  constructor() {
+    this.socket = null;
+    this.chart = null;
+    this.labels = [];
+    this.speedData = [];
+    this.throttleData = [];
+    this.brakeData = [];
+    this.init();
+  }
 
-const UDP_PORT = 20777;
-const WS_PORT = 3000;
-const HTTP_PORT = 8080;
+  init() {
+    this.cacheElements();
+    this.setupChart();
+    this.setupEvents();
+    this.updateStatus('Pronto per connettersi', 'info');
+  }
 
-const app = express();
-const wss = new WebSocket.Server({ port: WS_PORT });
-let telemetryData = {
-  speed: 0,
-  throttle: 0,
-  brake: 0,
-  pitLap: '--',
-  rejoinPos: '--',
-  tyreWear: '--',
-  avgLapTime: '--',
-  fastestLap: '--',
-  leaderPace: '--',
-  rpm: 0,
-  gear: 0,
-  lap: 0,
-  position: 0
-};
+  cacheElements() {
+    this.elements = {
+      connectBtn: document.getElementById('connectBtn'),
+      ipInput: document.getElementById('ipInput'),
+      status: document.getElementById('status'),
+      speedDisplay: document.getElementById('speedDisplay'),
+      throttle: document.getElementById('throttle'),
+      brake: document.getElementById('brake'),
+      rpm: document.getElementById('rpm'),
+      gear: document.getElementById('gear'),
+      lap: document.getElementById('lap'),
+      position: document.getElementById('position')
+    };
 
-app.use(express.static('public'));
-app.get('/', (req, res) => {
-  res.send(`
-    <h1>🚗 F1 25 Telemetry Server</h1>
-    <p>✅ UDP listening on port ${UDP_PORT}</p>
-    <p>✅ WebSocket on ws://localhost:${WS_PORT}</p>
-    <p><a href="/dashboard.html">📊 Apri Dashboard</a></p>
-    <script>setTimeout(() => location.href='/dashboard.html', 2000);</script>
-  `);
-});
+    ['pitLap', 'rejoinPos', 'tyreWear', 'avgLapTime', 'fastestLap', 'leaderPace', 'gapToLeader'].forEach(key => {
+      this.elements[key] = document.getElementById(key);
+      this.elements[key + 'Scroll'] = document.getElementById(key + 'Scroll');
+    });
+  }
 
-const server = dgram.createSocket('udp4');
-const decoder = createPacketDecoder();
-
-server.on('message', (msg) => {
-  try {
-    const packet = decoder.decode(msg);
-    
-    // F1 25 Motion Packet (primo pacchetto tipico)
-    if (packet.header && packet.header.packetId === 0) {
-      telemetryData.speed = packet.vehicleF1TelemetryData[0]?.speed || 0;
-      telemetryData.throttle = packet.vehicleF1TelemetryData[0]?.throttle * 100;
-      telemetryData.brake = packet.vehicleF1TelemetryData[0]?.brake * 100;
-      telemetryData.rpm = packet.vehicleF1TelemetryData[0]?.engineRPM || 0;
-      telemetryData.gear = packet.vehicleF1TelemetryData[0]?.gear || 0;
-    }
-    
-    // Lap Data Packet
-    if (packet.header && packet.header.packetId === 2) {
-      telemetryData.lap = packet.lapData[0]?.currentLapNum || 0;
-      telemetryData.position = packet.lapData[0]?.carPosition || 0;
-    }
-    
-    // Broadcast a tutti i client WebSocket
-    wss.clients.forEach((client) => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(JSON.stringify(telemetryData));
+  setupChart() {
+    const ctx = document.getElementById('telemetryChart').getContext('2d');
+    this.chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: this.labels,
+        datasets: [
+          {
+            label: 'Velocità (km/h)',
+            data: this.speedData,
+            borderColor: '#00ff88',
+            backgroundColor: 'rgba(0, 255, 136, 0.1)',
+            tension: 0.4,
+            yAxisID: 'y'
+          },
+          {
+            label: 'Throttle (%)',
+            data: this.throttleData,
+            borderColor: '#00ccff',
+            backgroundColor: 'rgba(0, 204, 255, 0.1)',
+            tension: 0.4,
+            yAxisID: 'y1'
+          },
+          {
+            label: 'Brake (%)',
+            data: this.brakeData,
+            borderColor: '#ff4444',
+            backgroundColor: 'rgba(255, 68, 68, 0.1)',
+            tension: 0.4,
+            yAxisID: 'y1'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { intersect: false },
+        scales: {
+          x: { ticks: { color: '#aaa' }, grid: { color: '#333' } },
+          y: {
+            type: 'linear',
+            position: 'left',
+            beginAtZero: true,
+            max: 350,
+            ticks: { color: '#00ff88' },
+            grid: { color: '#333' }
+          },
+          y1: {
+            type: 'linear',
+            position: 'right',
+            beginAtZero: true,
+            max: 100,
+            ticks: { color: '#00ccff' },
+            grid: { color: 'transparent' }
+          }
+        },
+        plugins: { legend: { labels: { color: '#fff' } } }
       }
     });
-  } catch (e) {
-    console.log('Parse error:', e.message);
   }
-});
 
-server.on('listening', () => {
-  const address = server.address();
-  console.log(`\n🚀 F1 25 Telemetry Server AVVIATO!`);
-  console.log(`📡 UDP listening: ${address.address}:${address.port}`);
-  console.log(`🌐 WebSocket: ws://${address.address}:${WS_PORT}`);
-  console.log(`📱 HTTP Dashboard: http://${address.address}:${HTTP_PORT}`);
-  console.log(`\n📝 F1 25 → Settings → Telemetry:`);
-  console.log(`   UDP IP: ${address.address}`);
-  console.log(`   UDP Port: 20777`);
-  console.log(`   Format: 2025\n`);
-});
+  setupEvents() {
+    this.elements.connectBtn.addEventListener('click', () => this.toggleConnection());
+    this.elements.ipInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') this.toggleConnection();
+    });
+  }
 
-server.bind(UDP_PORT, '0.0.0.0');
+  toggleConnection() {
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      this.disconnect();
+    } else {
+      this.connect();
+    }
+  }
 
-wss.on('connection', (ws) => {
-  ws.send(JSON.stringify(telemetryData));
-  console.log('👤 Client WebSocket connesso');
-});
+  connect() {
+    const ip = this.elements.ipInput.value.trim();
+    if (!ip) return this.updateStatus('Inserisci indirizzo server', 'error');
 
-app.listen(HTTP_PORT, '0.0.0.0', () => {
-  console.log(`🌐 HTTP server su http://0.0.0.0:${HTTP_PORT}`);
-});
+    try {
+      this.elements.connectBtn.textContent = '🔌 Disconnetti';
+      this.elements.connectBtn.disabled = true;
+      this.updateStatus('Connessione in corso...', 'connecting');
+
+      this.socket = new WebSocket(`ws://${ip}`);
+
+      this.socket.onopen = () => {
+        this.elements.connectBtn.disabled = false;
+        this.updateStatus('🟢 Connesso!', 'connected');
+      };
+
+      this.socket.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          this.updateDisplay(data);
+        } catch (e) {
+          console.error('JSON parse error:', e);
+        }
+      };
+
+      this.socket.onclose = () => this.disconnect();
+      this.socket.onerror = (e) => {
+        console.error('WebSocket error:', e);
+        this.updateStatus('❌ Errore connessione', 'error');
+        this.elements.connectBtn.disabled = false;
+      };
+    } catch (e) {
+      this.updateStatus('❌ Errore: ' + e.message, 'error');
+      this.elements.connectBtn.disabled = false;
+    }
+  }
+
+  disconnect() {
+    if (this.socket) {
+      this.socket.close();
+      this.socket = null;
+    }
+    this.elements.connectBtn.textContent = '🔌 Connetti';
+    this.elements.connectBtn.disabled = false;
+    this.updateStatus('Disconnesso', 'info');
+    this.resetDisplay();
+  }
+
+  updateDisplay(data) {
+    this.elements.speedDisplay.textContent = `${Math.round(data.speed || 0)} km/h`;
+    this.elements.throttle.textContent = `${Math.round(data.throttle || 0)}%`;
+    this.elements.brake.textContent = `${Math.round(data.brake || 0)}%`;
+    this.elements.rpm.textContent = data.rpm ? `${Math.round(data.rpm).toLocaleString()}` : '--';
+    this.elements.gear.textContent = data.gear || '--';
+    this.elements.lap.textContent = data.lap || '--';
+    this.elements.position.textContent = data.position || '--';
+
+    ['pitLap', 'rejoinPos', 'tyreWear', 'avgLapTime', 'fastestLap', 'leaderPace', 'gapToLeader'].forEach(key => {
+      const value = data[key] ?? '--';
+      if (this.elements[key]) this.elements[key].textContent = value;
+      if (this.elements[key + 'Scroll']) this.elements[key + 'Scroll'].textContent = value;
+    });
+
+    const now = new Date().toLocaleTimeString('it-IT', { hour12: false });
+    this.labels.push(now);
+    this.speedData.push(data.speed || 0);
+    this.throttleData.push(data.throttle || 0);
+    this.brakeData.push(data.brake || 0);
+
+    if (this.labels.length > 50) {
+      this.labels.shift();
+      this.speedData.shift();
+      this.throttleData.shift();
+      this.brakeData.shift();
+    }
+
+    this.chart.update('none');
+  }
+
+  updateStatus(message, type) {
+    const statusEl = this.elements.status;
+    statusEl.textContent = message;
+    statusEl.className = `status ${type}`;
+    statusEl.style.display = 'block';
+  }
+
+  resetDisplay() {
+    Object.values(this.elements).forEach(el => {
+      if (el && typeof el.textContent !== 'undefined') {
+        el.textContent = el.id === 'speedDisplay' ? '-- km/h' : '--';
+      }
+    });
+  }
+}
+
+new F1TelemetryDashboard();

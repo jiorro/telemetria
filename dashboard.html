@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>F1 25 Telemetria Live</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg-primary: #0f0f0f;
+      --bg-secondary: #1a1a1a;
+      --bg-panel: #121212;
+      --bg-card: #181818;
+      --text-primary: #e0e8e0;
+      --accent: #00ffcc;
+      --accent-hover: #00ccaa;
+      --border: #333;
+      --grid: #2a2a2a;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: linear-gradient(to bottom, var(--bg-primary), var(--bg-secondary));
+      color: var(--text-primary);
+      font-family: 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 1rem;
+    }
+
+    header {
+      text-align: center;
+      padding: 2rem 1rem;
+      background: rgba(15, 15, 15, 0.8);
+      border-radius: 20px;
+      margin-bottom: 2rem;
+      backdrop-filter: blur(10px);
+    }
+
+    .connect-form {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin: 1rem 0;
+    }
+
+    input {
+      padding: 1rem;
+      font-size: 1rem;
+      border-radius: 12px;
+      border: 2px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-primary);
+      min-width: 200px;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 20px rgba(0, 255, 204, 0.3);
+    }
+
+    button {
+      padding: 1rem 2rem;
+      font-size: 1rem;
+      font-weight: 600;
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    button:hover:not(:disabled) { background: var(--accent-hover); transform: translateY(-2px); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .status {
+      padding: 1rem 2rem;
+      border-radius: 12px;
+      font-weight: 600;
+      margin: 1rem auto;
+      max-width: 400px;
+      text-align: center;
+    }
+
+    .status.connected { background: rgba(0, 255, 0, 0.2); color: #00ff88; border-left: 5px solid #00ff88; }
+    .status.error { background: rgba(255, 0, 0, 0.2); color: #ff6666; border-left: 5px solid #ff4444; }
+    .status.connecting { background: rgba(255, 193, 7, 0.2); color: #ffc107; border-left: 5px solid #ffc107; }
+
+    .dashboard {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr;
+      gap: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    .panel {
+      background: var(--bg-panel);
+      border-radius: 20px;
+      padding: 2rem;
+      border: 1px solid var(--border);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+    }
+
+    .speed-panel {
+      grid-column: span 1;
+      text-align: center;
+    }
+
+    .speed-value {
+      font-size: clamp(4rem, 15vw, 8rem);
+      font-weight: 800;
+      color: var(--accent);
+      text-shadow: 0 0 40px var(--accent);
+      margin: 1rem 0;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .telemetry-item {
+      background: var(--bg-card);
+      padding: 1.5rem;
+      border-radius: 12px;
+      text-align: center;
+      border-left: 4px solid var(--accent);
+    }
+
+    .telemetry-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .strategy-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+
+    .strategy-item {
+      background: rgba(0, 255, 204, 0.1);
+      padding: 1.5rem;
+      border-radius: 12px;
+      border: 1px solid rgba(0, 255, 204, 0.3);
+    }
+
+    .strategy-label {
+      font-size: 0.9rem;
+      opacity: 0.8;
+      margin-bottom: 0.5rem;
+    }
+
+    .strategy-value {
+      font-size: 1.3rem;
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    .chart-container {
+      height: 400px;
+      position: relative;
+    }
+
+    @media (max-width: 1024px) {
+      .dashboard { grid-template-columns: 1fr; }
+      .strategy-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 768px) {
+      .connect-form { flex-direction: column; align-items: center; }
+      input { min-width: unset; width: 100%; max-width: 300px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🏎️ F1 25 Telemetria Live</h1>
+      <div class="connect-form">
+        <input id="ipInput" value="localhost:3000" placeholder="Indirizzo server (es: 192.168.1.100:3000)">
+        <button id="connectBtn">🔌 Connetti</button>
+      </div>
+      <div id="status" class="status" style="display: none;"></div>
+    </header>
+
+    <div class="dashboard">
+      <div class="panel">
+        <div class="chart-container">
+          <canvas id="telemetryChart"></canvas>
+        </div>
+      </div>
+
+      <div class="panel speed-panel">
+        <h2>Velocità</h2>
+        <div class="speed-value" id="speedDisplay">-- km/h</div>
+        <div class="telemetry-grid">
+          <div class="telemetry-item">
+            <div>Giri/min</div>
+            <div class="telemetry-value" id="rpm">--</div>
+          </div>
+          <div class="telemetry-item">
+            <div>Marcia</div>
+            <div class="telemetry-value" id="gear">--</div>
+          </div>
+          <div class="telemetry-item">
+            <div>Giro</div>
+            <div class="telemetry-value" id="lap">--</div>
+          </div>
+          <div class="telemetry-item">
+            <div>Posizione</div>
+            <div class="telemetry-value" id="position">--</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Controlli</h2>
+        <div class="telemetry-grid">
+          <div class="telemetry-item">
+            <div>Acceleratore</div>
+            <div class="telemetry-value" id="throttle">--%</div>
+          </div>
+          <div class="telemetry-item">
+            <div>Freno</div>
+            <div class="telemetry-value" id="brake">--%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Strategia Gara</h2>
+      <div class="strategy-grid">
+        <div class="strategy-item">
+          <div class="strategy-label">Pit Stop</div>
+          <div class="strategy-value" id="pitLap">--</div>
+        </div>
+        <div class="strategy-item">
+          <div class="strategy-label">Rientro</div>
+          <div class="strategy-value" id="rejoinPos">--</div>
+        </div>
+        <div class="strategy-item">
+          <div class="strategy-label">Gomme</div>
+          <div class="strategy-value" id="tyreWear">--%</div>
+        </div>
+        <div class="strategy-item">
+          <div class="strategy-label">Media Giro</div>
+          <div class="strategy-value" id="avgLapTime">--</div>
+        </div>
+        <div class="strategy-item">
+          <div class="strategy-label">PB</div>
+          <div class="strategy-value" id="fastestLap">--</div>
+        </div>
+        <div class="strategy-item">
+          <div class="strategy-label">Leader</div>
+          <div class="strategy-value" id="leaderPace">--</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    class F1TelemetryDashboard {
+      constructor() {
+        this.socket = null;
+        this.chart = null;
+        this.labels = [];
+        this.speedData = [];
+        this.throttleData = [];
+        this.brakeData = [];
+        this.init();
+      }
+
+      init() {
+        this.cacheElements();
+        this.setupChart();
+        this.setupEvents();
+        this.updateStatus('Pronto per connettersi', 'info');
+      }
+
+      cacheElements() {
+        this.elements = {
+          connectBtn: document.getElementById('connectBtn'),
+          ipInput: document.getElementById('ipInput'),
+          status: document.getElementById('status'),
+          speedDisplay: document.getElementById('speedDisplay')
+        };
+        Object.keys(this.elements).forEach(key => {
+          const el = document.getElementById(key.replace('Display', ''));
+          if (el) this.elements[key.replace('Display', '')] = el;
+        });
+      }
+
+      setupChart() {
+        const ctx = document.getElementById('telemetryChart').getContext('2d');
+        this.chart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: this.labels,
+            datasets: [
+              {
+                label: 'Velocità (km/h)',
+                data: this.speedData,
+                borderColor: '#00ff88',
+                backgroundColor: 'rgba(0, 255, 136, 0.1)',
+                tension: 0.4,
+                yAxisID: 'y'
+              },
+              {
+                label: 'Throttle (%)',
+                data: this.throttleData,
+                borderColor: '#00ccff',
+                backgroundColor: 'rgba(0, 204, 255, 0.1)',
+                tension: 0.4,
+                yAxisID: 'y1'
+              },
+              {
+                label: 'Brake (%)',
+                data: this.brakeData,
+                borderColor: '#ff4444',
+                backgroundColor: 'rgba(255, 68, 68, 0.1)',
+                tension: 0.4,
+                yAxisID: 'y1'
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { intersect: false },
+            scales: {
+              x: {
+                ticks: { color: '#aaa' },
+                grid: { color: '#333' }
+              },
+              y: {
+                type: 'linear',
+                position: 'left',
+                beginAtZero: true,
+                max: 350,
+                ticks: { color: '#00ff88' },
+                grid: { color: '#333' }
+              },
+              y1: {
+                type: 'linear',
+                position: 'right',
+                beginAtZero: true,
+                max: 100,
+                ticks: { color: '#00ccff' },
+                grid: { color: 'transparent' }
+              }
+            },
+            plugins: {
+              legend: { labels: { color: '#fff' } }
+            }
+          }
+        });
+      }
+
+      setupEvents() {
+        this.elements.connectBtn.addEventListener('click', () => this.toggleConnection());
+        document.getElementById('ipInput').addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') this.toggleConnection();
+        });
+      }
+
+      toggleConnection() {
+        if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+          this.disconnect();
+        } else {
+          this.connect();
+        }
+      }
+
+      connect() {
+        const ip = this.elements.ipInput.value.trim();
+        if (!ip) return this.updateStatus('Inserisci indirizzo server', 'error');
+
+        try {
+          this.elements.connectBtn.textContent = '🔌 Disconnetti';
+          this.elements.connectBtn.disabled = true;
+          this.updateStatus('Connessione in corso...', 'connecting');
+
+          this.socket = new WebSocket(`ws://${ip}`);
+
+          this.socket.onopen = () => {
+            this.elements.connectBtn.disabled = false;
+            this.elements.connectBtn.textContent = '🔌 Disconnetti';
+            this.updateStatus('🟢 Connesso!', 'connected');
+          };
+
+          this.socket.onmessage = (event) => {
+            try {
+              const data = JSON.parse(event.data);
+              this.updateDisplay(data);
+            } catch (e) {
+              console.error('JSON parse error:', e);
+            }
+          };
+
+          this.socket.onclose = () => this.disconnect();
+          this.socket.onerror = (e) => {
+            console.error('WebSocket error:', e);
+            this.updateStatus('❌ Errore connessione', 'error');
+          };
+        } catch (e) {
+          this.updateStatus('❌ Errore: ' + e.message, 'error');
+          this.elements.connectBtn.disabled = false;
+        }
+      }
+
+      disconnect() {
+        if (this.socket) {
+          this.socket.close();
+          this.socket = null;
+        }
+        this.elements.connectBtn.textContent = '🔌 Connetti';
+        this.elements.connectBtn.disabled = false;
+        this.updateStatus('Disconnesso', 'info');
+        this.resetDisplay();
+      }
+
+      updateDisplay(data) {
+        // Velocità principale
+        this.elements.speedDisplay.textContent = `${Math.round(data.speed || 0)} km/h`;
+
+        // Telemetria base
+        this.elements.throttle.textContent = `${Math.round(data.throttle || 0)}%`;
+        this.elements.brake.textContent = `${Math.round(data.brake || 0)}%`;
+        this.elements.rpm.textContent = data.rpm ? `${Math.round(data.rpm).toLocaleString()}` : '--';
+        this.elements.gear.textContent = data.gear || '--';
+        this.elements.lap.textContent = data.lap || '--';
+        this.elements.position.textContent = data.position || '--';
+
+        // Strategia
+        ['pitLap', 'rejoinPos', 'tyreWear', 'avgLapTime', 'fastestLap', 'leaderPace'].forEach(key => {
+          const el = document.getElementById(key);
+          if (el) el.textContent = data[key] ?? '--';
+        });
+
+        // Aggiorna grafico
+        const now = new Date().toLocaleTimeString('it-IT', { hour12: false });
+        this.labels.push(now);
+        this.speedData.push(data.speed || 0);
+        this.throttleData.push(data.throttle || 0);
+        this.brakeData.push(data.brake || 0);
+
+        if (this.labels.length > 50) {
+          this.labels.shift();
+          this.speedData.shift();
+          this.throttleData.shift();
+          this.brakeData.shift();
+        }
+
+        this.chart.update('none');
+      }
+
+      updateStatus(message, type) {
+        const statusEl = this.elements.status;
+        statusEl.textContent = message;
+        statusEl.className = `status ${type}`;
+        statusEl.style.display = 'block';
+      }
+
+      resetDisplay() {
+        document.querySelectorAll('[id$="Display"], [id$="lap"], [id$="pos"], span').forEach(el => {
+          el.textContent = '--';
+        });
+        this.elements.speedDisplay.textContent = '-- km/h';
+      }
+    }
+
+    // Avvia dashboard
+    new F1TelemetryDashboard();
+  </script>
+</body>
+</html>

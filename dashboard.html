@@ -5,32 +5,345 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>F1 25 Telemetria Live</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <link rel="stylesheet" href="style.css">
+  <style>
+    :root {
+      --bg-primary: #0a0a0a;
+      --bg-secondary: #151515;
+      --bg-panel: #1a1a1a;
+      --bg-card: #222222;
+      --text-primary: #e8ecef;
+      --accent: #00ffcc;
+      --accent-hover: #00ccaa;
+      --border: #333;
+      --grid: #2a2a2a;
+      --shadow: rgba(0, 255, 204, 0.1);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: radial-gradient(ellipse at top, #0a0a0a 0%, #000 100%);
+      color: var(--text-primary);
+      font-family: 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: 
+        radial-gradient(circle at 20% 80%, rgba(0,255,204,0.03) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(0,255,204,0.02) 0%, transparent 50%),
+        radial-gradient(circle at 40% 40%, rgba(0,150,255,0.01) 0%, transparent 50%);
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    .info-table {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(10,10,10,0.95);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--accent);
+      border-radius: 12px;
+      padding: 1rem;
+      max-width: 300px;
+      z-index: 1000;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+    }
+
+    .info-table h3 { 
+      color: var(--accent); 
+      margin-bottom: 1rem; 
+      font-size: 1.1rem; 
+    }
+
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
+      font-size: 0.9rem;
+    }
+
+    .info-value { color: var(--accent); font-weight: 600; }
+
+    .container { max-width: 1600px; margin: 0 auto; padding: 2rem 1rem; }
+
+    header {
+      text-align: center;
+      padding: 2rem;
+      background: rgba(15, 15, 15, 0.9);
+      border-radius: 24px;
+      margin-bottom: 2rem;
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--border);
+      box-shadow: 0 25px 50px rgba(0,0,0,0.6);
+    }
+
+    .connect-form {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin: 1.5rem 0;
+    }
+
+    input, button {
+      padding: 1rem 1.5rem;
+      font-size: 1rem;
+      border-radius: 12px;
+      border: none;
+      font-family: inherit;
+      transition: all 0.3s ease;
+    }
+
+    input {
+      min-width: 250px;
+      background: var(--bg-card);
+      color: var(--text-primary);
+      border: 2px solid var(--border);
+    }
+
+    input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 25px var(--shadow);
+      transform: translateY(-2px);
+    }
+
+    button {
+      font-weight: 700;
+      background: var(--accent);
+      color: #000;
+      cursor: pointer;
+    }
+
+    button:hover:not(:disabled) { 
+      background: var(--accent-hover); 
+      transform: translateY(-3px);
+      box-shadow: 0 15px 30px var(--shadow);
+    }
+
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .status {
+      padding: 1rem 2rem;
+      border-radius: 12px;
+      font-weight: 700;
+      margin: 1rem auto;
+      max-width: 450px;
+      text-align: center;
+      box-shadow: 0 15px 30px rgba(0,0,0,0.4);
+    }
+
+    .status.connected { 
+      background: rgba(0, 255, 0, 0.2); 
+      color: #00ff88; 
+      border-left: 6px solid #00ff88; 
+    }
+    .status.error { 
+      background: rgba(255, 0, 0, 0.2); 
+      color: #ff6666; 
+      border-left: 6px solid #ff4444; 
+    }
+    .status.connecting { 
+      background: rgba(255, 193, 7, 0.2); 
+      color: #ffc107; 
+      border-left: 6px solid #ffc107; 
+    }
+
+    .dashboard {
+      display: grid;
+      grid-template-columns: 1fr 350px 400px;
+      gap: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    .panel {
+      background: rgba(20, 20, 20, 0.9);
+      border-radius: 24px;
+      padding: 2rem;
+      border: 1px solid var(--border);
+      box-shadow: 0 25px 50px rgba(0,0,0,0.6);
+      backdrop-filter: blur(20px);
+    }
+
+    .speed-panel { text-align: center; grid-column: span 1; }
+    .speed-panel h2 { color: var(--accent); margin-bottom: 1.5rem; font-size: 1.5rem; }
+    .speed-value {
+      font-size: clamp(5rem, 18vw, 10rem);
+      font-weight: 900;
+      color: var(--accent);
+      text-shadow: 0 0 60px var(--accent);
+      margin: 1rem 0;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .lap-average {
+      background: rgba(0, 255, 204, 0.1);
+      padding: 1.5rem;
+      border-radius: 16px;
+      border: 1px solid rgba(0, 255, 204, 0.3);
+      margin-top: 1rem;
+    }
+
+    .lap-average h3 { 
+      color: var(--accent); 
+      margin-bottom: 1rem; 
+      font-size: 1.2rem; 
+    }
+
+    .avg-speed { 
+      font-size: 2rem; 
+      font-weight: 800; 
+      color: var(--accent); 
+    }
+
+    .pit-lap-display {
+      font-size: 3rem;
+      font-weight: 900;
+      color: #ffaa00;
+      text-shadow: 0 0 30px rgba(255, 170, 0, 0.6);
+      margin: 1rem 0;
+    }
+
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+
+    .telemetry-item {
+      background: var(--bg-card);
+      padding: 1.5rem;
+      border-radius: 16px;
+      text-align: center;
+      border-left: 4px solid var(--accent);
+      transition: all 0.3s ease;
+    }
+
+    .telemetry-item:hover { transform: translateY(-5px); box-shadow: 0 15px 30px var(--shadow); }
+
+    .telemetry-value {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: var(--accent);
+      margin-top: 0.5rem;
+    }
+
+    .pit-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .pit-item {
+      background: rgba(18, 18, 18, 0.8);
+      padding: 1.5rem;
+      border-radius: 16px;
+      text-align: center;
+      border: 1px solid rgba(0, 255, 204, 0.3);
+      transition: all 0.3s ease;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+    }
+
+    .pit-item:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 20px 40px var(--shadow);
+      border-color: var(--accent);
+    }
+
+    .pit-label { font-size: 0.9rem; opacity: 0.8; margin-bottom: 0.5rem; }
+    .pit-value { 
+      font-size: 1.6rem; 
+      font-weight: 800; 
+      color: var(--accent); 
+      text-shadow: 0 0 10px var(--accent); 
+    }
+
+    .chart-container { height: 500px; position: relative; }
+
+    @media (max-width: 1400px) {
+      .dashboard { grid-template-columns: 1fr 1fr 1fr; }
+    }
+
+    @media (max-width: 1024px) {
+      .dashboard { grid-template-columns: 1fr; }
+      .info-table { position: static; margin: 1rem 0; }
+    }
+
+    @media (max-width: 768px) {
+      .connect-form { flex-direction: column; align-items: center; }
+      input { width: 100%; max-width: 300px; }
+      .container { padding: 1rem; }
+    }
+  </style>
 </head>
 <body>
+  <!-- 📋 TABELLA UDP IN ALTO A DESTRA -->
+  <div class="info-table">
+    <h3>⚙️ Configurazione F1 25</h3>
+    <div class="info-row">
+      <span>UDP IP:</span>
+      <span class="info-value">127.0.0.1</span>
+    </div>
+    <div class="info-row">
+      <span>UDP Port:</span>
+      <span class="info-value">20777</span>
+    </div>
+    <div class="info-row">
+      <span>Send Rate:</span>
+      <span class="info-value">60 Hz</span>
+    </div>
+    <div class="info-row">
+      <span>Format:</span>
+      <span class="info-value">2025</span>
+    </div>
+  </div>
+
   <div class="container">
     <header>
-      <h1>🏎️ F1 25 Telemetria Live</h1>
+      <h1>🏎️ F1 25 TELEMETRIA LIVE</h1>
       <div class="connect-form">
-        <input id="ipInput" value="localhost:3000" placeholder="Indirizzo server (es: 192.168.1.100:3000)">
+        <input id="ipInput" value="localhost:3000" placeholder="Server WebSocket (localhost:3000)">
         <button id="connectBtn">🔌 Connetti</button>
       </div>
       <div id="status" class="status" style="display: none;"></div>
     </header>
 
     <div class="dashboard">
+      <!-- GRAFICO ACCELLERAZIONE/FRENATA/VELOCITÀ -->
       <div class="panel">
+        <h2 style="color: var(--accent); text-align: center; margin-bottom: 1.5rem;">📈 Telemetria Live</h2>
         <div class="chart-container">
           <canvas id="telemetryChart"></canvas>
         </div>
       </div>
 
+      <!-- VELOCITÀ + PIT LAP + MEDIA VELOCITÀ -->
       <div class="panel speed-panel">
-        <h2>Velocità</h2>
+        <h2>🏁 Velocità & Strategia</h2>
         <div class="speed-value" id="speedDisplay">-- km/h</div>
+        
+        <div class="pit-lap-display" id="pitLapDisplay">--</div>
+        
+        <div class="lap-average">
+          <h3>📊 Media Velocità Giri</h3>
+          <div class="avg-speed" id="avgLapSpeed">-- km/h</div>
+          <p style="opacity: 0.8; font-size: 0.9rem;">Passo Gara</p>
+        </div>
+
         <div class="telemetry-grid">
           <div class="telemetry-item">
-            <div>Giri/min</div>
+            <div>RPM</div>
             <div class="telemetry-value" id="rpm">--</div>
           </div>
           <div class="telemetry-item">
@@ -48,8 +361,9 @@
         </div>
       </div>
 
-      <div class="panel pit-scroll-section">
-        <h2 style="text-align:center;color:#00ffcc;margin-bottom:2rem;font-size:1.8rem;">📊 Strategia Pit Stop</h2>
+      <!-- PIT STRATEGY -->
+      <div class="panel">
+        <h2 style="text-align: center; color: #00ffcc; margin-bottom: 2rem;">📋 Strategia Pit Stop</h2>
         <div class="pit-grid">
           <div class="pit-item">
             <div class="pit-label">Pit Lap</div>
@@ -67,60 +381,250 @@
             <div class="pit-label">Media Giro</div>
             <div class="pit-value" id="avgLapTimeScroll">--</div>
           </div>
-          <div class="pit-item">
-            <div class="pit-label">PB</div>
-            <div class="pit-value" id="fastestLapScroll">--</div>
-          </div>
-          <div class="pit-item">
-            <div class="pit-label">Leader Pace</div>
-            <div class="pit-value" id="leaderPaceScroll">--</div>
-          </div>
-          <div class="pit-item">
-            <div class="pit-label">Gap to Leader</div>
-            <div class="pit-value" id="gapToLeaderScroll">--</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="panel">
-        <h2>Controlli</h2>
-        <div class="telemetry-grid">
-          <div class="telemetry-item">
-            <div>Acceleratore</div>
-            <div class="telemetry-value" id="throttle">--%</div>
-          </div>
-          <div class="telemetry-item">
-            <div>Freno</div>
-            <div class="telemetry-value" id="brake">--%</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="panel">
-        <h2>Strategia Gara</h2>
-        <div class="strategy-grid">
-          <div class="strategy-item">
-            <div class="strategy-label">Pit Stop</div>
-            <div class="strategy-value" id="pitLap">--</div>
-          </div>
-          <div class="strategy-item">
-            <div class="strategy-label">Rientro</div>
-            <div class="strategy-value" id="rejoinPos">--</div>
-          </div>
-          <div class="strategy-item">
-            <div class="strategy-label">Gomme</div>
-            <div class="strategy-value" id="tyreWear">--%</div>
-          </div>
-          <div class="strategy-item">
-            <div class="strategy-label">Media Giro</div>
-            <div class="strategy-value" id="avgLapTime">--</div>
-          </div>
         </div>
       </div>
     </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="dashboard.js"></script>
+  <script>
+    class F1TelemetryDashboard {
+      constructor() {
+        this.socket = null;
+        this.chart = null;
+        this.labels = [];
+        this.speedData = [];
+        this.throttleData = [];
+        this.brakeData = [];
+        this.avgSpeeds = [];
+        this.init();
+      }
+
+      init() {
+        this.cacheElements();
+        this.setupChart();
+        this.setupEvents();
+        this.updateStatus('Pronto per connettersi', 'info');
+      }
+
+      cacheElements() {
+        this.elements = {
+          connectBtn: document.getElementById('connectBtn'),
+          ipInput: document.getElementById('ipInput'),
+          status: document.getElementById('status'),
+          speedDisplay: document.getElementById('speedDisplay'),
+          pitLapDisplay: document.getElementById('pitLapDisplay'),
+          avgLapSpeed: document.getElementById('avgLapSpeed'),
+          throttle: document.getElementById('throttle'),
+          brake: document.getElementById('brake'),
+          rpm: document.getElementById('rpm'),
+          gear: document.getElementById('gear'),
+          lap: document.getElementById('lap'),
+          position: document.getElementById('position')
+        };
+
+        ['pitLap', 'rejoinPos', 'tyreWear', 'avgLapTime'].forEach(key => {
+          this.elements[key] = document.getElementById(key);
+          this.elements[key + 'Scroll'] = document.getElementById(key + 'Scroll');
+        });
+      }
+
+      setupChart() {
+        const ctx = document.getElementById('telemetryChart').getContext('2d');
+        this.chart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: this.labels,
+            datasets: [
+              {
+                label: 'Velocità (km/h)',
+                data: this.speedData,
+                borderColor: '#00ff88',
+                backgroundColor: 'rgba(0, 255, 136, 0.1)',
+                tension: 0.4,
+                yAxisID: 'y',
+                fill: true
+              },
+              {
+                label: 'Acceleratore (%)',
+                data: this.throttleData,
+                borderColor: '#00ccff',
+                backgroundColor: 'rgba(0, 204, 255, 0.1)',
+                tension: 0.4,
+                yAxisID: 'y1'
+              },
+              {
+                label: 'Frenata (%)',
+                data: this.brakeData,
+                borderColor: '#ff4444',
+                backgroundColor: 'rgba(255, 68, 68, 0.1)',
+                tension: 0.4,
+                yAxisID: 'y1',
+                borderWidth: 3
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { intersect: false },
+            scales: {
+              x: { 
+                ticks: { color: '#aaa', maxTicksLimit: 10 },
+                grid: { color: '#2a2a2a' }
+              },
+              y: {
+                type: 'linear',
+                position: 'left',
+                beginAtZero: true,
+                max: 350,
+                ticks: { color: '#00ff88' },
+                grid: { color: '#333' },
+                title: { display: true, text: 'Velocità', color: '#00ff88' }
+              },
+              y1: {
+                type: 'linear',
+                position: 'right',
+                beginAtZero: true,
+                max: 100,
+                ticks: { color: '#00ccff' },
+                grid: { color: 'transparent' },
+                title: { display: true, text: '%', color: '#00ccff' }
+              }
+            },
+            plugins: {
+              legend: { 
+                labels: { 
+                  color: '#fff',
+                  padding: 20,
+                  usePointStyle: true
+                } 
+              }
+            },
+            animation: { duration: 0 }
+          }
+        });
+      }
+
+      setupEvents() {
+        this.elements.connectBtn.addEventListener('click', () => this.toggleConnection());
+        this.elements.ipInput.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') this.toggleConnection();
+        });
+      }
+
+      toggleConnection() {
+        if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+          this.disconnect();
+        } else {
+          this.connect();
+        }
+      }
+
+      connect() {
+        const ip = this.elements.ipInput.value.trim();
+        if (!ip) return this.updateStatus('Inserisci indirizzo server', 'error');
+
+        this.elements.connectBtn.textContent = '🔌 Disconnetti';
+        this.elements.connectBtn.disabled = true;
+        this.updateStatus('Connessione in corso...', 'connecting');
+
+        this.socket = new WebSocket(`ws://${ip}`);
+
+        this.socket.onopen = () => {
+          this.elements.connectBtn.disabled = false;
+          this.updateStatus('🟢 Connesso a F1 25!', 'connected');
+        };
+
+        this.socket.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            this.updateDisplay(data);
+          } catch (e) {
+            console.error('JSON parse error:', e);
+          }
+        };
+
+        this.socket.onclose = () => this.disconnect();
+        this.socket.onerror = (e) => {
+          console.error('WebSocket error:', e);
+          this.updateStatus('❌ Errore connessione', 'error');
+          this.elements.connectBtn.disabled = false;
+        };
+      }
+
+      disconnect() {
+        if (this.socket) {
+          this.socket.close();
+          this.socket = null;
+        }
+        this.elements.connectBtn.textContent = '🔌 Connetti';
+        this.elements.connectBtn.disabled = false;
+        this.updateStatus('Disconnesso', 'info');
+        this.resetDisplay();
+      }
+
+      updateDisplay(data) {
+        // Velocità principale
+        const speed = Math.round(data.speed || 0);
+        this.elements.speedDisplay.textContent = `${speed} km/h`;
+
+        // Telemetria
+        this.elements.rpm.textContent = data.rpm ? `${Math.round(data.rpm).toLocaleString()}` : '--';
+        this.elements.gear.textContent = data.gear || '--';
+        this.elements.lap.textContent = data.lap || '--';
+        this.elements.position.textContent = data.position || '--';
+        this.elements.pitLapDisplay.textContent = data.pitLap || '--';
+
+        // Strategia
+        ['pitLap', 'rejoinPos', 'tyreWear', 'avgLapTime'].forEach(key => {
+          const value = data[key] ?? '--';
+          if (this.elements[key]) this.elements[key].textContent = value;
+          if (this.elements[key + 'Scroll']) this.elements[key + 'Scroll'].textContent = value;
+        });
+
+        // Media velocità giri
+        this.avgSpeeds.push(speed);
+        if (this.avgSpeeds.length > 100) this.avgSpeeds.shift();
+        const avgSpeed = Math.round(this.avgSpeeds.reduce((a,b)=>a+b,0)/this.avgSpeeds.length);
+        this.elements.avgLapSpeed.textContent = `${avgSpeed} km/h`;
+
+        // Aggiorna grafico
+        const now = new Date().toLocaleTimeString('it-IT', { hour12: false });
+        this.labels.push(now);
+        this.speedData.push(speed);
+        this.throttleData.push(data.throttle || 0);
+        this.brakeData.push(data.brake || 0);
+
+        if (this.labels.length > 60) {
+          this.labels.shift();
+          this.speedData.shift();
+          this.throttleData.shift();
+          this.brakeData.shift();
+        }
+
+        this.chart.update('none');
+      }
+
+      updateStatus(message, type) {
+        const statusEl = this.elements.status;
+        statusEl.textContent = message;
+        statusEl.className = `status ${type}`;
+        statusEl.style.display = 'block';
+      }
+
+      resetDisplay() {
+        Object.values(this.elements).forEach(el => {
+          if (el && typeof el.textContent !== 'undefined') {
+            el.textContent = el.id === 'speedDisplay' ? '-- km/h' : 
+                           el.id === 'avgLapSpeed' ? '-- km/h' : '--';
+          }
+        });
+        this.avgSpeeds = [];
+      }
+    }
+
+    new F1TelemetryDashboard();
+  </script>
 </body>
 </html>

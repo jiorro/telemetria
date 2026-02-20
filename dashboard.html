@@ -80,8 +80,15 @@
       transition: all 0.3s ease;
     }
 
-    button:hover:not(:disabled) { background: var(--accent-hover); transform: translateY(-2px); }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button:hover:not(:disabled) { 
+      background: var(--accent-hover); 
+      transform: translateY(-2px); 
+    }
+    
+    button:disabled { 
+      opacity: 0.5; 
+      cursor: not-allowed; 
+    }
 
     .status {
       padding: 1rem 2rem;
@@ -92,9 +99,23 @@
       text-align: center;
     }
 
-    .status.connected { background: rgba(0, 255, 0, 0.2); color: #00ff88; border-left: 5px solid #00ff88; }
-    .status.error { background: rgba(255, 0, 0, 0.2); color: #ff6666; border-left: 5px solid #ff4444; }
-    .status.connecting { background: rgba(255, 193, 7, 0.2); color: #ffc107; border-left: 5px solid #ffc107; }
+    .status.connected { 
+      background: rgba(0, 255, 0, 0.2); 
+      color: #00ff88; 
+      border-left: 5px solid #00ff88; 
+    }
+    
+    .status.error { 
+      background: rgba(255, 0, 0, 0.2); 
+      color: #ff6666; 
+      border-left: 5px solid #ff4444; 
+    }
+    
+    .status.connecting { 
+      background: rgba(255, 193, 7, 0.2); 
+      color: #ffc107; 
+      border-left: 5px solid #ffc107; 
+    }
 
     .dashboard {
       display: grid;
@@ -146,6 +167,49 @@
       color: var(--accent);
     }
 
+    .pit-scroll-panel {
+      grid-column: 1 / -1;
+      margin-top: 2rem;
+      padding: 2rem;
+      background: linear-gradient(180deg, #0f0f14 0%, #1a1a1f 100%);
+      border-radius: 20px;
+    }
+
+    .pit-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1.5rem;
+      max-width: 1200px;
+      margin: 2rem auto;
+    }
+
+    .pit-item {
+      background: rgba(18, 18, 18, 0.8);
+      padding: 1.5rem;
+      border-radius: 12px;
+      text-align: center;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    }
+
+    .pit-item.pit { border-left: 4px solid #00ffcc; }
+    .pit-item.wear { border-left: 4px solid #ffaa00; }
+    .pit-item.avg { border-left: 4px solid #00ff88; }
+    .pit-item.pb { border-left: 4px solid #ff4444; }
+    .pit-item.leader { border-left: 4px solid #ffaa00; }
+    .pit-item.gap { border-left: 4px solid #44ff44; }
+
+    .pit-label {
+      font-size: 0.9rem;
+      opacity: 0.8;
+      margin-bottom: 0.5rem;
+    }
+
+    .pit-value {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #00ffcc;
+    }
+
     .strategy-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -177,13 +241,24 @@
     }
 
     @media (max-width: 1024px) {
-      .dashboard { grid-template-columns: 1fr; }
-      .strategy-grid { grid-template-columns: 1fr; }
+      .dashboard { 
+        grid-template-columns: 1fr; 
+      }
+      .strategy-grid { 
+        grid-template-columns: 1fr; 
+      }
     }
 
     @media (max-width: 768px) {
-      .connect-form { flex-direction: column; align-items: center; }
-      input { min-width: unset; width: 100%; max-width: 300px; }
+      .connect-form { 
+        flex-direction: column; 
+        align-items: center; 
+      }
+      input { 
+        min-width: unset; 
+        width: 100%; 
+        max-width: 300px; 
+      }
     }
   </style>
 </head>
@@ -224,42 +299,42 @@
           <div class="telemetry-item">
             <div>Posizione</div>
             <div class="telemetry-value" id="position">--</div>
-  <!-- PIT SCROLL SIMPLE -->
-    <div style="margin-top:4rem;padding:3rem 2rem;background:linear-gradient(180deg,#0f0f14 0%,#1a1a1f 100%);border-radius:20px;">
-      <h2 style="text-align:center;color:#00ffcc;margin-bottom:2rem;font-size:1.8rem;">📊 Strategia Pit Stop</h2>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1.5rem;max-width:1200px;margin:2rem auto;">
-        <div style="background:rgba(18,18,18,0.8);padding:1.5rem;border-radius:12px;border-left:4px solid #00ffcc;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,0.4);">
-          <div style="font-size:0.9rem;opacity:0.8;margin-bottom:0.5rem;">Pit Lap</div>
-          <div id="pitLapScroll" style="font-size:1.6rem;font-weight:700;color:#00ffcc;">--</div>
+          </div>
         </div>
-        <div style="background:rgba(18,18,18,0.8);padding:1.5rem;border-radius:12px;border-left:4px solid #00ffcc;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,0.4);">
-          <div style="font-size:0.9rem;opacity:0.8;margin-bottom:0.5rem;">Rientro Pos</div>
-          <div id="rejoinPosScroll" style="font-size:1.6rem;font-weight:700;color:#00ffcc;">--</div>
-        </div>
-        <div style="background:rgba(18,18,18,0.8);padding:1.5rem;border-radius:12px;border-left:4px solid #ffaa00;text-align:center;box-shadow:0 10px 30pxrgba(0,0,0,0.4);">
-  <div style="font-size:0.9rem;opacity:0.8;margin-bottom:0.5rem;">Usura Gomme</div>
-          <div id="tyreWearScroll" style="font-size:1.6rem;font-weight:700;color:#00ffcc;">--%</div>
-        </div>
-        <div style="background:rgba(18,18,18,0.8);padding:1.5rem;border-radius:12px;border-left:4px solid #00ff88;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,0.4);">
-          <div style="font-size:0.9rem;opacity:0.8;margin-bottom:0.5rem;">Media Giro</div>
-          <div id="avgLapTimeScroll" style="font-size:1.6rem;font-weight:700;color:#00ffcc;">--</div">--</div>
-        </div>
-        <div style="background:rgba(18,18,18,18,0.8);padding:1.5rem;border-radius:12px;border18,18,18,0.8);padding:1.5rem;border-radius:12px;border-left:4px solid #ff4444;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,0.4);">
-  <div style="font-size:0.9rem;opacity:0.8;margin-bottom:0.5rem;">PB</div>
- <div id="fastestLapScroll" style="font-size:1.6rem;font-weight:700;color:#00ffcc;">--</div>
-        </div>
-        <div style="background:rgba(18,18,18,18,0.8);padding:1.5rem;border-radius:12px;border-left:4px solid #ffaa00;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,0.4);">
-          <div style="font-size:0.9rem;opacity:0.8;margin-bottom:0.5rem;">Leader Pace</div>
-          <div id="leaderPaceScroll" style="font-size:1.6rem;font-weight:700;color:#00ffcc;">--</div>
-        </div>
-        <div style="background:rgba(18,18,18,0.8);padding:1.5rem;border-radius:12px;border-left:4px solid #44ff44;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,0.4);">
-          <div style="font-size:0.9rem;opacity:0.8;margin-bottom:0.5rem;">Gap to Leader</div>
-          <div id="gapToLeaderScroll" style="font-size:1.6rem;font-weight:700;color:#00ffcc;">--</div>
-        </div>
+      </div>
 
-    </div>
-    <div style="background:rgba(18,
-
+      <div class="panel pit-scroll-panel">
+        <h2 style="text-align:center;color:#00ffcc;margin-bottom:2rem;font-size:1.8rem;">📊 Strategia Pit Stop</h2>
+        <div class="pit-grid">
+          <div class="pit-item pit">
+            <div class="pit-label">Pit Lap</div>
+            <div class="pit-value" id="pitLapScroll">--</div>
+          </div>
+          <div class="pit-item pit">
+            <div class="pit-label">Rientro Pos</div>
+            <div class="pit-value" id="rejoinPosScroll">--</div>
+          </div>
+          <div class="pit-item wear">
+            <div class="pit-label">Usura Gomme</div>
+            <div class="pit-value" id="tyreWearScroll">--%</div>
+          </div>
+          <div class="pit-item avg">
+            <div class="pit-label">Media Giro</div>
+            <div class="pit-value" id="avgLapTimeScroll">--</div>
+          </div>
+          <div class="pit-item pb">
+            <div class="pit-label">PB</div>
+            <div class="pit-value" id="fastestLapScroll">--</div>
+          </div>
+          <div class="pit-item leader">
+            <div class="pit-label">Leader Pace</div>
+            <div class="pit-value" id="leaderPaceScroll">--</div>
+          </div>
+          <div class="pit-item gap">
+            <div class="pit-label">Gap to Leader</div>
+            <div class="pit-value" id="gapToLeaderScroll">--</div>
+          </div>
+        </div>
       </div>
 
       <div class="panel">
@@ -275,40 +350,31 @@
           </div>
         </div>
       </div>
-    </div>
 
-    <div class="panel">
-      <h2>Strategia Gara</h2>
-      <div class="strategy-grid">
-        <div class="strategy-item">
-          <div class="strategy-label">Pit Stop</div>
-          <div class="strategy-value" id="pitLap">--</div>
-        </div>
-        <div class="strategy-item">
-          <div class="strategy-label">Rientro</div>
-          <div class="strategy-value" id="rejoinPos">--</div>
-        </div>
-        <div class="strategy-item">
-          <div class="strategy-label">Gomme</div>
-          <div class="strategy-value" id="tyreWear">--%</div>
-        </div>
-        <div class="strategy-item">
-          <div class="strategy-label">Media Giro</div>
-          <div class="strategy-value" id="avgLapTime">--</div>
-        </div>
-        <div class="strategy-item">
-          <div class="strategy-label">PB</div>
-          <div class="strategy-value" id="fastestLap">--</div>
-        </div>
-        <div class="strategy-item">
-          <div class="strategy-label">Leader</div>
-          <div class="strategy-value" id="leaderPace">--</div>
+      <div class="panel">
+        <h2>Strategia Gara</h2>
+        <div class="strategy-grid">
+          <div class="strategy-item">
+            <div class="strategy-label">Pit Stop</div>
+            <div class="strategy-value" id="pitLap">--</div>
+          </div>
+          <div class="strategy-item">
+            <div class="strategy-label">Rientro</div>
+            <div class="strategy-value" id="rejoinPos">--</div>
+          </div>
+          <div class="strategy-item">
+            <div class="strategy-label">Gomme</div>
+            <div class="strategy-value" id="tyreWear">--%</div>
+          </div>
+          <div class="strategy-item">
+            <div class="strategy-label">Media Giro</div>
+            <div class="strategy-value" id="avgLapTime">--</div>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
     class F1TelemetryDashboard {
       constructor() {
@@ -333,11 +399,19 @@
           connectBtn: document.getElementById('connectBtn'),
           ipInput: document.getElementById('ipInput'),
           status: document.getElementById('status'),
-          speedDisplay: document.getElementById('speedDisplay')
+          speedDisplay: document.getElementById('speedDisplay'),
+          throttle: document.getElementById('throttle'),
+          brake: document.getElementById('brake'),
+          rpm: document.getElementById('rpm'),
+          gear: document.getElementById('gear'),
+          lap: document.getElementById('lap'),
+          position: document.getElementById('position')
         };
-        Object.keys(this.elements).forEach(key => {
-          const el = document.getElementById(key.replace('Display', ''));
-          if (el) this.elements[key.replace('Display', '')] = el;
+
+        // Cache elementi strategia
+        ['pitLap', 'rejoinPos', 'tyreWear', 'avgLapTime', 'fastestLap', 'leaderPace'].forEach(key => {
+          this.elements[key] = document.getElementById(key);
+          this.elements[key + 'Scroll'] = document.getElementById(key + 'Scroll');
         });
       }
 
@@ -409,7 +483,7 @@
 
       setupEvents() {
         this.elements.connectBtn.addEventListener('click', () => this.toggleConnection());
-        document.getElementById('ipInput').addEventListener('keypress', (e) => {
+        this.elements.ipInput.addEventListener('keypress', (e) => {
           if (e.key === 'Enter') this.toggleConnection();
         });
       }
@@ -452,6 +526,7 @@
           this.socket.onerror = (e) => {
             console.error('WebSocket error:', e);
             this.updateStatus('❌ Errore connessione', 'error');
+            this.elements.connectBtn.disabled = false;
           };
         } catch (e) {
           this.updateStatus('❌ Errore: ' + e.message, 'error');
@@ -482,10 +557,11 @@
         this.elements.lap.textContent = data.lap || '--';
         this.elements.position.textContent = data.position || '--';
 
-        // Strategia
+        // Strategia (entrambi i pannelli)
         ['pitLap', 'rejoinPos', 'tyreWear', 'avgLapTime', 'fastestLap', 'leaderPace'].forEach(key => {
-          const el = document.getElementById(key);
-          if (el) el.textContent = data[key] ?? '--';
+          const value = data[key] ?? '--';
+          if (this.elements[key]) this.elements[key].textContent = value;
+          if (this.elements[key + 'Scroll']) this.elements[key + 'Scroll'].textContent = value;
         });
 
         // Aggiorna grafico
@@ -513,10 +589,15 @@
       }
 
       resetDisplay() {
-        document.querySelectorAll('[id$="Display"], [id$="lap"], [id$="pos"], span').forEach(el => {
-          el.textContent = '--';
+        Object.values(this.elements).forEach(el => {
+          if (el && typeof el.textContent !== 'undefined') {
+            if (el.id === 'speedDisplay') {
+              el.textContent = '-- km/h';
+            } else {
+              el.textContent = '--';
+            }
+          }
         });
-        this.elements.speedDisplay.textContent = '-- km/h';
       }
     }
 

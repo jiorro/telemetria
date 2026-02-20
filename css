@@ -1,0 +1,326 @@
+:root {
+  --bg-primary: #0f0f0f;
+  --bg-secondary: #1a1a1a;
+  --bg-panel: #121212;
+  --bg-card: #181818;
+  --text-primary: #e0e8e0;
+  --accent: #00ffcc;
+  --accent-hover: #00ccaa;
+  --border: #333;
+  --grid: #2a2a2a;
+  --shadow: rgba(0, 0, 0, 0.4);
+}
+
+* { 
+  box-sizing: border-box; 
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  margin: 0;
+  background: linear-gradient(to bottom, var(--bg-primary), var(--bg-secondary));
+  color: var(--text-primary);
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+  line-height: 1.5;
+}
+
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+header {
+  text-align: center;
+  padding: 2rem 1rem;
+  background: rgba(15, 15, 15, 0.8);
+  border-radius: 20px;
+  margin-bottom: 2rem;
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border);
+  box-shadow: 0 20px 40px var(--shadow);
+}
+
+.connect-form {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin: 1rem 0;
+}
+
+input {
+  padding: 1rem;
+  font-size: 1rem;
+  border-radius: 12px;
+  border: 2px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  min-width: 200px;
+  transition: all 0.3s ease;
+  font-family: inherit;
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 20px rgba(0, 255, 204, 0.3);
+  transform: translateY(-2px);
+}
+
+button {
+  padding: 1rem 2rem;
+  font-size: 1rem;
+  font-weight: 600;
+  background: var(--accent);
+  color: #000;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: inherit;
+}
+
+button:hover:not(:disabled) { 
+  background: var(--accent-hover); 
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(0, 255, 204, 0.3);
+}
+
+button:disabled { 
+  opacity: 0.5; 
+  cursor: not-allowed; 
+  transform: none;
+}
+
+.status {
+  padding: 1rem 2rem;
+  border-radius: 12px;
+  font-weight: 600;
+  margin: 1rem auto;
+  max-width: 400px;
+  text-align: center;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+}
+
+.status.connected { 
+  background: rgba(0, 255, 0, 0.2); 
+  color: #00ff88; 
+  border-left: 5px solid #00ff88; 
+}
+
+.status.error { 
+  background: rgba(255, 0, 0, 0.2); 
+  color: #ff6666; 
+  border-left: 5px solid #ff4444; 
+}
+
+.status.connecting { 
+  background: rgba(255, 193, 7, 0.2); 
+  color: #ffc107; 
+  border-left: 5px solid #ffc107; 
+}
+
+.dashboard {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+.panel {
+  background: var(--bg-panel);
+  border-radius: 20px;
+  padding: 2rem;
+  border: 1px solid var(--border);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+}
+
+.speed-panel {
+  grid-column: span 1;
+  text-align: center;
+}
+
+.speed-panel h2 {
+  color: var(--accent);
+  margin-bottom: 1rem;
+}
+
+.speed-value {
+  font-size: clamp(4rem, 15vw, 8rem);
+  font-weight: 800;
+  color: var(--accent);
+  text-shadow: 0 0 40px var(--accent);
+  margin: 1rem 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.telemetry-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.telemetry-item {
+  background: var(--bg-card);
+  padding: 1.5rem;
+  border-radius: 12px;
+  text-align: center;
+  border-left: 4px solid var(--accent);
+  transition: transform 0.2s ease;
+}
+
+.telemetry-item:hover {
+  transform: translateY(-5px);
+}
+
+.telemetry-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.strategy-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.strategy-item {
+  background: rgba(0, 255, 204, 0.1);
+  padding: 1.5rem;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 255, 204, 0.3);
+  transition: all 0.3s ease;
+}
+
+.strategy-item:hover {
+  background: rgba(0, 255, 204, 0.2);
+  transform: translateY(-3px);
+}
+
+.strategy-label {
+  font-size: 0.9rem;
+  opacity: 0.8;
+  margin-bottom: 0.5rem;
+}
+
+.strategy-value {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.chart-container {
+  height: 400px;
+  position: relative;
+}
+
+/* 🎯 NUOVE AGGIUNTE PIT SCROLL */
+.pit-scroll-section {
+  margin-top: 4rem;
+  padding: 3rem 2rem;
+  background: linear-gradient(180deg, #0f0f14 0%, #1a1a1f 100%);
+  border-radius: 20px;
+  opacity: 0;
+  transform: translateY(50px);
+  transition: all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  border-top: 3px solid var(--accent);
+}
+
+.pit-scroll-section.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.pit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.5rem;
+  margin-top: 2rem;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.pit-item {
+  background: rgba(18, 18, 18, 0.8);
+  padding: 1.8rem;
+  border-radius: 16px;
+  border: 1px solid rgba(0, 255, 204, 0.3);
+  text-align: center;
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+}
+
+.pit-item:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 20px 40px rgba(0,255,204,0.2);
+  border-color: var(--accent);
+}
+
+.pit-label {
+  font-size: 0.9rem;
+  opacity: 0.8;
+  margin-bottom: 0.5rem;
+  color: var(--text-secondary);
+}
+
+.pit-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--accent);
+  text-shadow: 0 0 10px rgba(0,255,204,0.5);
+}
+
+/* RESPONSIVE */
+@media (max-width: 1024px) {
+  .dashboard { 
+    grid-template-columns: 1fr; 
+  }
+  .strategy-grid { 
+    grid-template-columns: 1fr; 
+  }
+  .pit-grid {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .connect-form { 
+    flex-direction: column; 
+    align-items: center; 
+  }
+  input { 
+    min-width: unset; 
+    width: 100%; 
+    max-width: 300px; 
+  }
+  .container {
+    padding: 0.5rem;
+  }
+  .pit-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}
+
+/* SCROLLBAR PERSONALIZZATA */
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-card);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--accent);
+  border-radius: 5px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-hover);
+}
